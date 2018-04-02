@@ -91,14 +91,6 @@ def _fix_pooling(pool_type, inputs, new_attr):
     kernel = new_attr.get('kernel')
     padding = new_attr.get('pad')
 
-    # Adding default stride.
-    if stride is None:
-        stride = (1,) * len(kernel)
-
-    # Add padding attr if not provided.
-    if padding is None:
-        padding = (0,) * len(kernel) * 2
-
     # Mxnet Pad operator supports only 4D/5D tensors.
     # For 1D case, these are the steps:
     #    Step 1. Add extra dummy dimension to make it 4D. Adding to  axis = 2
@@ -107,9 +99,10 @@ def _fix_pooling(pool_type, inputs, new_attr):
     if len(kernel) == 1:
         dummy_axis = 2
         # setting 0 padding to the new dim to be added.
+        padding = ()
         if len(padding) == 1:
             padding = (0, padding[0], 0, padding[0])
-        else:
+        if len(padding) == 2:
             padding = (0, padding[0], 0, padding[1])
         pad_width = (0, 0, 0, 0) + _pad_sequence_fix(padding, kernel_dim=2)
 
@@ -122,17 +115,15 @@ def _fix_pooling(pool_type, inputs, new_attr):
         # Step 3: Removing extra dim added.
         new_pad_op = symbol.split(new_pad_op, axis=dummy_axis, num_outputs=1, squeeze_axis=1)
     else:
-        # For 2D/3D cases:
-        # Apply padding
+        # Add padding attr if not provided.
+        if padding is None:
+            padding = (0,) * len(kernel) * 2
         pad_width = (0, 0, 0, 0) + _pad_sequence_fix(padding, kernel_dim=len(kernel))
         curr_sym = inputs[0]
-        if pool_type == 'max':
-            new_pad_op = symbol.pad(curr_sym, mode='edge', pad_width=pad_width)
-        else:
-            new_pad_op = symbol.pad(curr_sym, mode='constant', pad_width=pad_width)
+        new_pad_op = symbol.pad(curr_sym, mode='edge', pad_width=pad_width)
 
-    # Apply pooling without pads.
-    new_pooling_op = symbol.Pooling(new_pad_op, pool_type=pool_type, stride=stride, kernel=kernel)
+    new_pooling_op = symbol.Pooling(new_pad_op, pool_type=pool_type,
+                                    stride=stride, kernel=kernel)
     return new_pooling_op
 
 def _fix_bias(op_name, attrs, num_inputs):
@@ -200,3 +191,4 @@ def _fix_gemm(op_name, inputs, old_attr, cls):
     new_inputs = [alpha*inputs[0], inputs[1], beta*inputs[2]]
     new_attr = {'num_hidden' : cls._params[inputs[2].name].shape[0]}
     return op_sym, new_attr, new_inputs
+

@@ -94,13 +94,12 @@ class MXNetBackend(Backend):
             result obtained after running the operator
         """
         graph = GraphProto()
-        sym, arg_params, aux_params = graph.from_onnx(MXNetBackend.make_graph(node, inputs))
-        data_names = [i for i in sym.list_inputs() if i not in (arg_params, aux_params)]
+        sym, _ = graph.from_onnx(MXNetBackend.make_graph(node, inputs))
+        data_names = [i for i in sym.get_internals().list_inputs()]
         data_shapes = []
         dim_change_op_types = set(['ReduceMin', 'ReduceMax', 'ReduceMean',
                                    'ReduceProd', 'ReduceSum', 'Slice', 'Pad',
-                                   'Squeeze', 'Upsample', 'Reshape', 'Conv',
-                                   'Concat', 'Softmax'])
+                                   'Squeeze', 'Upsample', 'Reshape', 'Conv'])
 
         # Adding extra dimension of batch_size 1 if the batch_size is different for multiple inputs.
         for idx, input_name in enumerate(data_names):
@@ -124,10 +123,7 @@ class MXNetBackend(Backend):
         mod.bind(for_training=False, data_shapes=data_shapes, label_shapes=None)
 
         # initializing parameters for calculating result of each individual node
-        if arg_params is None or aux_params is None:
-            mod.init_params()
-        else:
-            mod.set_params(arg_params=arg_params, aux_params=aux_params)
+        mod.init_params()
 
         data_forward = []
         for idx, input_name in enumerate(data_names):
@@ -166,8 +162,8 @@ class MXNetBackend(Backend):
             used to run inference on the input model and return the result for comparison.
         """
         graph = GraphProto()
-        sym, arg_params, aux_params = graph.from_onnx(model.graph)
-        return MXNetBackendRep(sym, arg_params, aux_params, device)
+        sym, params = graph.from_onnx(model.graph)
+        return MXNetBackendRep(sym, params, device)
 
     @classmethod
     def supports_device(cls, device):

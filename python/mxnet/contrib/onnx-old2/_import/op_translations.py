@@ -274,13 +274,12 @@ def linalg_gemm(attrs, inputs, cls):
         alpha = attrs['alpha']
     if 'beta' in attrs:
         beta = attrs['beta']
-    flatten_a = symbol.flatten(inputs[0])
-    matmul_op = symbol.linalg_gemm2(A=flatten_a, B=inputs[1],
+    matmul_op = symbol.linalg_gemm2(A=inputs[0], B=inputs[1],
                                     transpose_a=trans_a, transpose_b=trans_b,
                                     alpha=alpha)
     gemm_op = symbol.broadcast_add(matmul_op, beta*inputs[2])
     new_attrs = translation_utils._fix_attribute_names(attrs, {'transA': 'transpose_a',
-                                                               'transB': 'transpose_b'})
+                                                                'transB': 'transpose_b'})
     new_attrs = translation_utils._remove_attributes(new_attrs, ['broadcast'])
     return gemm_op, new_attrs, inputs
 
@@ -294,7 +293,7 @@ def local_response_norm(attrs, inputs, cls):
 def dropout(attrs, inputs, cls):
     """Dropout Regularization."""
     mode = 'training'
-    if attrs['is_test'] == 0:
+    if attrs['is_test'] != 0:
         mode = 'always'
     new_attrs = translation_utils._fix_attribute_names(attrs,
                                                        {'ratio': 'p'})
@@ -354,8 +353,7 @@ def squeeze(attrs, inputs, cls):
     return mxnet_op, new_attrs, inputs
 
 def take(attrs, inputs, cls):
-    """ Takes elements from an input array along the given axis.
-    Currently only slicing along axis 0 is supported for now."""
+    """ Takes elements from an input array along the given axis. Currently only slicing along axis 0 is supported for now."""
     return 'take', attrs, inputs
 
 #Powers
@@ -417,7 +415,8 @@ def avg_pooling(attrs, inputs, cls):
                                                         'pads': 'pad',
                                                        })
     new_attrs = translation_utils._add_extra_attributes(new_attrs,
-                                                        {'pooling_convention': 'valid'
+                                                        {'pool_type': 'avg',
+                                                         'pooling_convention': 'valid'
                                                         })
     new_op = translation_utils._fix_pooling('avg', inputs, new_attrs)
 
@@ -433,7 +432,8 @@ def max_pooling(attrs, inputs, cls):
                                                        })
 
     new_attrs = translation_utils._add_extra_attributes(new_attrs,
-                                                        {'pooling_convention': 'valid'
+                                                        {'pool_type': 'avg',
+                                                         'pooling_convention': 'valid'
                                                         })
     new_op = translation_utils._fix_pooling('max', inputs, new_attrs)
 
